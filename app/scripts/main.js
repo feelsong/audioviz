@@ -163,7 +163,8 @@ http://deepelmdigital.com/album/save-your-heart
 		for(var i = 0; i < settings.trails; i++) {
 
 			tendrils.push(new Tendril({
-				spring: 0.45 + 0.025 * (i / settings.trails)
+				//spring: 0.45 + 0.025 * (i / settings.trails)
+				spring: 0.6 + 0.001 * (i / settings.trails)
 			}));
 		}
 	}
@@ -174,8 +175,9 @@ http://deepelmdigital.com/album/save-your-heart
 		ctx.fillStyle = 'rgba(8,5,16,0.5)';
 		ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 		ctx.globalCompositeOperation = 'lighter';
-		ctx.strokeStyle = 'hsla(' + Math.round(hue.update()) + ',90%,50%,0.25)';
-		ctx.lineWidth = 1;
+		//ctx.strokeStyle = 'hsla(' + Math.round(hue.update()) + ',90%,50%,0.1)';
+		ctx.strokeStyle = 'hsla(' + Math.round(hue.update()) + ',96%,50%,'+opacityUpdate()+')';
+		ctx.lineWidth = 2;
 
 		for(var i = 0, tendril; i < settings.trails; i++) {
 			tendril = tendrils[i];
@@ -185,6 +187,11 @@ http://deepelmdigital.com/album/save-your-heart
 
 		ctx.stats.update();
 		requestAnimFrame(loop);
+	}
+
+	function opacityUpdate() {
+		//con
+		return Math.random() * (0.5 - 0.3) + 0.3;
 	}
 
 	function resize() {
@@ -222,7 +229,7 @@ http://deepelmdigital.com/album/save-your-heart
 		hue = new Oscillator({
 			phase: Math.random() * Math.TWO_PI,
 			amplitude: 100,
-			frequency: 0.0015,
+			frequency: 100 * Math.random(),
 			offset: 285
 		});
 
