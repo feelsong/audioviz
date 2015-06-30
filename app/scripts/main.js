@@ -228,9 +228,9 @@ http://deepelmdigital.com/album/save-your-heart
 
 		hue = new Oscillator({
 			phase: Math.random() * Math.TWO_PI,
-			amplitude: 100,
+			amplitude: 400,
 			frequency: 100 * Math.random(),
-			offset: 285
+			offset: 10
 		});
 
 		document.body.addEventListener('orientationchange', resize);
