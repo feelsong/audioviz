@@ -1,175 +1,289 @@
-var container, stats;
-			var camera, scene, renderer, particle;
-			var mouseX = 0, mouseY = 0;
+/*
+Ultraviolet
+------------------------------------------------------------
+Inspired by the album "Save Your Heart" by Lights and Motion
+http://labs.nikrowell.com/lightsandmotion/ultraviolet
+http://deepelmdigital.com/album/save-your-heart
+*/
 
-			var windowHalfX = window.innerWidth / 2;
-			var windowHalfY = window.innerHeight / 2;
+;(function(window) {
 
-			init();
-			animate();
+	var ctx,
+		hue,
+		buffer,
+		target = {},
+		tendrils = [],
+		settings = {};
 
-			function init() {
+	settings.debug = false;
+	settings.friction = 0.5;
+	settings.trails = 30;
+	settings.size = 40;
+	settings.dampening = 0.4;
+	settings.tension = 0.98;
 
-				container = document.createElement( 'div' );
-				document.body.appendChild( container );
+	Math.TWO_PI = Math.PI * 2;
 
-				camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 1, 5000 );
-				camera.position.z = 1000;
+	// ========================================================================================
+	// Oscillator
+	// ----------------------------------------------------------------------------------------
 
-				scene = new THREE.Scene();
+	function Oscillator(options) {
+		this.init(options || {});
+	}
 
-				var material = new THREE.SpriteMaterial( {
-					map: new THREE.Texture( generateSprite() ),
-					blending: THREE.AdditiveBlending
-				} );
+	Oscillator.prototype = (function() {
 
-				for ( var i = 0; i < 1000; i++ ) {
+		var value = 0;
 
-					particle = new THREE.Sprite( material );
+		return {
 
-					initParticle( particle, i * 10 );
+			init: function(options) {
+				this.phase = options.phase || 0;
+				this.offset = options.offset || 0;
+				this.frequency = options.frequency || 0.001;
+				this.amplitude = options.amplitude || 1;
+			},
 
-					scene.add( particle );
+			update: function() {
+				this.phase += this.frequency;
+				value = this.offset + Math.sin(this.phase) * this.amplitude;
+				return value;
+			},
+
+			value: function() {
+				return value;
+			}
+		};
+
+	})();
+
+	// ========================================================================================
+	// Tendril
+	// ----------------------------------------------------------------------------------------
+
+	function Tendril(options) {
+		this.init(options || {});
+	}
+
+	Tendril.prototype = (function() {
+
+		function Node() {
+			this.x = 0;
+			this.y = 0;
+			this.vy = 0;
+			this.vx = 0;
+		}
+
+		return {
+
+			init: function(options) {
+
+				this.spring = options.spring + (Math.random() * 0.1) - 0.05;
+				this.friction = settings.friction + (Math.random() * 0.01) - 0.005;
+				this.nodes = [];
+
+				for(var i = 0, node; i < settings.size; i++) {
+
+					node = new Node();
+					node.x = target.x;
+					node.y = target.y;
+
+					this.nodes.push(node);
+				}
+			},
+
+			update: function() {
+
+				var spring = this.spring,
+					node = this.nodes[0];
+
+				node.vx += (target.x - node.x) * spring;
+				node.vy += (target.y - node.y) * spring;
+
+				for(var prev, i = 0, n = this.nodes.length; i < n; i++) {
+
+					node = this.nodes[i];
+
+					if(i > 0) {
+
+						prev = this.nodes[i - 1];
+
+						node.vx += (prev.x - node.x) * spring;
+						node.vy += (prev.y - node.y) * spring;
+						node.vx += prev.vx * settings.dampening;
+						node.vy += prev.vy * settings.dampening;
+					}
+
+					node.vx *= this.friction;
+					node.vy *= this.friction;
+					node.x += node.vx;
+					node.y += node.vy;
+
+					spring *= settings.tension;
+				}
+			},
+
+			draw: function() {
+
+				var x = this.nodes[0].x,
+					y = this.nodes[0].y,
+					a, b;
+
+				ctx.beginPath();
+				ctx.moveTo(x, y);
+
+				for(var i = 1, n = this.nodes.length - 2; i < n; i++) {
+
+					a = this.nodes[i];
+					b = this.nodes[i + 1];
+					x = (a.x + b.x) * 0.5;
+					y = (a.y + b.y) * 0.5;
+
+					ctx.quadraticCurveTo(a.x, a.y, x, y);
 				}
 
-				renderer = new THREE.CanvasRenderer();
-				renderer.setClearColor( 0x000000 );
-				renderer.setPixelRatio( window.devicePixelRatio );
-				renderer.setSize( window.innerWidth, window.innerHeight );
-				container.appendChild( renderer.domElement );
+				a = this.nodes[i];
+				b = this.nodes[i + 1];
 
-				stats = new Stats();
-				stats.domElement.style.position = 'absolute';
-				stats.domElement.style.top = '0px';
-				container.appendChild( stats.domElement );
-
-				document.addEventListener( 'mousemove', onDocumentMouseMove, false );
-				document.addEventListener( 'touchstart', onDocumentTouchStart, false );
-				document.addEventListener( 'touchmove', onDocumentTouchMove, false );
-
-				//
-
-				window.addEventListener( 'resize', onWindowResize, false );
-
+				ctx.quadraticCurveTo(a.x, a.y, b.x, b.y);
+				ctx.stroke();
+				ctx.closePath();
 			}
+		};
 
-			function onWindowResize() {
+	})();
 
-				windowHalfX = window.innerWidth / 2;
-				windowHalfY = window.innerHeight / 2;
+	// ----------------------------------------------------------------------------------------
 
-				camera.aspect = window.innerWidth / window.innerHeight;
-				camera.updateProjectionMatrix();
+	function reset() {
 
-				renderer.setSize( window.innerWidth, window.innerHeight );
+		tendrils = [];
 
-			}
+		for(var i = 0; i < settings.trails; i++) {
 
-			function generateSprite() {
+			tendrils.push(new Tendril({
+				spring: 0.45 + 0.025 * (i / settings.trails)
+			}));
+		}
+	}
 
-				var canvas = document.createElement( 'canvas' );
-				canvas.width = 32;
-				canvas.height = 32;
+	function loop() {
 
-				var context = canvas.getContext( '2d' );
-				var gradient = context.createRadialGradient( canvas.width / 2, canvas.height / 2, 0, canvas.width / 2, canvas.height / 2, canvas.width / 2 );
-				gradient.addColorStop( 0, 'rgba(0,000,000,1)' );
-				gradient.addColorStop( 0.4, 'rgba(0,255,255,1)' );
-				gradient.addColorStop( 0.6, 'rgba(0,0,64,1)' );
-				gradient.addColorStop( 0.8, 'rgba(0,0,64,1)' );
+		ctx.globalCompositeOperation = 'source-over';
+		ctx.fillStyle = 'rgba(8,5,16,0.5)';
+		ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+		ctx.globalCompositeOperation = 'lighter';
+		ctx.strokeStyle = 'hsla(' + Math.round(hue.update()) + ',90%,50%,0.25)';
+		ctx.lineWidth = 1;
 
-				gradient.addColorStop( 1, 'rgba(0,0,0,1)' );
+		for(var i = 0, tendril; i < settings.trails; i++) {
+			tendril = tendrils[i];
+			tendril.update();
+			tendril.draw();
+		}
 
-				context.fillStyle = gradient;
-				// context.fillStyle = 'rgb(155, 187, 89)';
-				context.beginPath();
-				// context.fillRect( 0, 0, 80, 40);
-  				context.arc(32, 32, 64, 0, Math.PI*2, false);
-  				context.fill();
+		ctx.stats.update();
+		requestAnimFrame(loop);
+	}
 
-				return canvas;
+	function resize() {
+		ctx.canvas.width = window.innerWidth;
+		ctx.canvas.height = window.innerHeight;
+	}
 
-			}
+	function mousemove(event) {
+		if(event.touches) {
+			target.x = event.touches[0].pageX;
+			target.y = event.touches[0].pageY;
+		} else {
+			target.x = event.clientX
+			target.y = event.clientY;
+		}
+		//event.preventDefault();
+	}
 
-			function initParticle( particle, delay ) {
+	function touchstart(event) {
+		if(event.touches.length == 1) {
+			target.x = event.touches[0].pageX;
+			target.y = event.touches[0].pageY;
+		}
+	}
 
-				var particle = this instanceof THREE.Sprite ? this : particle;
-				var delay = delay !== undefined ? delay : 0;
+	window.requestAnimFrame = (function() {
+		return window.requestAnimationFrame || window.webkitRequestAnimationFrame || window.mozRequestAnimationFrame || function(fn) { window.setTimeout(fn, 1000 / 60) };
+	})();
 
-				particle.position.set( 0, 0, 0 )
-				particle.scale.x = particle.scale.y = Math.random() * 32 + 16;
+	window.onload = function() {
 
-				new TWEEN.Tween( particle )
-					.delay( delay )
-					.to( {}, 10000 )
-					.onComplete( initParticle )
-					.start();
+		ctx = document.getElementById('canvas').getContext('2d');
+		ctx.stats = new Stats();
 
-				new TWEEN.Tween( particle.position )
-					.delay( delay )
-					.to( { x: Math.random() * 4000 - 2000, y: Math.random() * 1000 - 500, z: Math.random() * 4000 - 2000 }, 10000 )
-					.start();
+		hue = new Oscillator({
+			phase: Math.random() * Math.TWO_PI,
+			amplitude: 100,
+			frequency: 0.0015,
+			offset: 285
+		});
 
-				new TWEEN.Tween( particle.scale )
-					.delay( delay )
-					.to( { x: 100, y: 100 }, 10000 )
-					.start();
+		document.body.addEventListener('orientationchange', resize);
+		window.addEventListener('resize', resize);
 
-			}
+		document.addEventListener('mousemove', mousemove);
+		document.addEventListener('touchmove', mousemove);
+		document.addEventListener('touchstart', touchstart);
 
-			//
+		target.x = Math.random() * ctx.canvas.width;
+		target.y = Math.random() * ctx.canvas.height;
 
-			function onDocumentMouseMove( event ) {
+		resize();
+		reset();
+		loop();
 
-				mouseX = event.clientX - windowHalfX;
-				mouseY = event.clientY - windowHalfY;
-			}
+		// kind of a hack ... but trigger a few mousemoves to kick things off
 
-			function onDocumentTouchStart( event ) {
+		mousemove({
+			clientX: Math.random() * ctx.canvas.width,
+			clientY: Math.random() * ctx.canvas.height
+		});
 
-				if ( event.touches.length == 1 ) {
+		setTimeout(function() {
+			mousemove({
+				clientX: Math.random() * ctx.canvas.width,
+				clientY: Math.random() * ctx.canvas.height
+			});
+		}, 100);
 
-					event.preventDefault();
+		setTimeout(function() {
+			mousemove({
+				clientX: Math.random() * ctx.canvas.width,
+				clientY: Math.random() * ctx.canvas.height
+			});
+		}, 500);
 
-					mouseX = event.touches[ 0 ].pageX - windowHalfX;
-					mouseY = event.touches[ 0 ].pageY - windowHalfY;
+		setTimeout(function() {
+			mousemove({
+				clientX: Math.random() * ctx.canvas.width,
+				clientY: Math.random() * ctx.canvas.height
+			});
+		}, 1000);
 
-				}
+		setTimeout(function() {
+			mousemove({
+				clientX: Math.random() * ctx.canvas.width,
+				clientY: Math.random() * ctx.canvas.height
+			});
+		}, 2000);
 
-			}
+		/*
+		var gui = new dat.GUI();
+		gui.add(settings, 'trails', 1, 30).onChange(reset);
+		gui.add(settings, 'size', 25, 75).onFinishChange(reset);
+		gui.add(settings, 'friction', 0.45, 0.55).onFinishChange(reset)
+		gui.add(settings, 'dampening', 0.01, 0.4).onFinishChange(reset);
+		gui.add(settings, 'tension', 0.95, 0.999).onFinishChange(reset);
+		document.body.appendChild(ctx.stats.domElement);
+		*/
+	};
 
-			function onDocumentTouchMove( event ) {
-
-				if ( event.touches.length == 1 ) {
-
-					event.preventDefault();
-
-					mouseX = event.touches[ 0 ].pageX - windowHalfX;
-					mouseY = event.touches[ 0 ].pageY - windowHalfY;
-
-				}
-
-			}
-
-			//
-
-			function animate() {
-
-				requestAnimationFrame( animate );
-
-				render();
-				stats.update();
-
-			}
-
-			function render() {
-
-				TWEEN.update();
-
-				camera.position.x += ( mouseX - camera.position.x ) * 0.05;
-				camera.position.y += ( - mouseY - camera.position.y ) * 0.05;
-				camera.lookAt( scene.position );
-
-				renderer.render( scene, camera );
-
-			}
+})(window);
