@@ -1,11 +1,3 @@
-/*
-Ultraviolet
-------------------------------------------------------------
-Inspired by the album "Save Your Heart" by Lights and Motion
-http://labs.nikrowell.com/lightsandmotion/ultraviolet
-http://deepelmdigital.com/album/save-your-heart
-*/
-
 ;(function(window) {
 
 	var ctx,
@@ -228,7 +220,7 @@ http://deepelmdigital.com/album/save-your-heart
 
 		hue = new Oscillator({
 			phase: Math.random() * Math.TWO_PI,
-			amplitude: 400,
+			amplitude: 100,
 			frequency: 100 * Math.random(),
 			offset: 10
 		});
