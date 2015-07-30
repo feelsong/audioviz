@@ -156,7 +156,7 @@
 
 			tendrils.push(new Tendril({
 				//spring: 0.45 + 0.025 * (i / settings.trails)
-				spring: 0.6 + 0.001 * (i / settings.trails)
+				spring: 0.45 + 0.025 * (i / settings.trails)
 			}));
 		}
 	}
@@ -167,8 +167,8 @@
 		ctx.fillStyle = 'rgba(8,5,16,0.5)';
 		ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 		ctx.globalCompositeOperation = 'lighter';
-		//ctx.strokeStyle = 'hsla(' + Math.round(hue.update()) + ',90%,50%,0.1)';
-		ctx.strokeStyle = 'hsla(' + Math.round(hue.update()) + ',96%,50%,'+opacityUpdate()+')';
+		ctx.strokeStyle = 'hsla(' + Math.round(hue.update()) + ',90%,50%,0.1)';
+		//ctx.strokeStyle = 'hsla(' + Math.round(hue.update()) + ',50%,20%,'+opacityUpdate()+')';
 		ctx.lineWidth = 2;
 
 		for(var i = 0, tendril; i < settings.trails; i++) {
@@ -220,8 +220,8 @@
 
 		hue = new Oscillator({
 			phase: Math.random() * Math.TWO_PI,
-			amplitude: 100,
-			frequency: 100 * Math.random(),
+			amplitude: 10,
+			frequency: 50 * Math.random(),
 			offset: 10
 		});
 
